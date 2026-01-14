@@ -1,5 +1,4 @@
-﻿
-using Microsoft.IdentityModel.Tokens;
+﻿using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
@@ -7,28 +6,36 @@ using UsuariosApi.Models;
 
 namespace UsuariosApi.Services
 {
-    internal class TokenService
+    public class TokenService
     {
-        public void GenerateToken(Usuario usuario)
+        private IConfiguration _configuration;
+
+        public TokenService(IConfiguration? configuration)
         {
-            Claim[] claims = new Claim[]
+            _configuration = configuration;
+        }
+        public string GenerateToken(Usuario usuario)
+        {
+            var claims = new[]
             {
                 new Claim("username", usuario.UserName),
                 new Claim("id", usuario.Id),
-                new Claim(ClaimTypes.DateOfBirth, usuario.DataNascimento.ToString())
+                new Claim(ClaimTypes.DateOfBirth, usuario.DataNascimento.ToString("yyyy-MM-dd")),
+                new Claim("loginTimeStamp", DateTime.UtcNow.ToString("o")) // formato ISO 8601
             };
 
-            var chave = new SymmetricSecurityKey(Encoding.UTF8.GetBytes("sdflknjhsdlbkjbg"));
-
-            var signingCredentials = new SigningCredentials(chave, SecurityAlgorithms.HmacSha256);
+            var chave = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["SymmetricSecurityKey"]));
+            var creds = new SigningCredentials(chave, SecurityAlgorithms.HmacSha256);
 
             var token = new JwtSecurityToken(
                 issuer: "UsuariosApi",
                 audience: "UsuariosApiClient",
                 claims: claims,
-                expires: DateTime.Now.AddHours(1),
-                signingCredentials: null
+                expires: DateTime.UtcNow.AddMinutes(10),
+                signingCredentials: creds
             );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
         }
     }
 }
